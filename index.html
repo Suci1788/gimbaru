@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duel Hutan: Biotik vs Abiotik</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap');
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            overflow: hidden;
+            background-color: #064e3b;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .forest-bg {
+            background: linear-gradient(180deg, #87CEEB 0%, #2D5A27 100%);
+            position: relative;
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .pulse-red {
+            animation: pulse-red 0.5s ease-in-out;
+        }
+
+        @keyframes pulse-red {
+            0% { background-color: #dc2626; transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { background-color: inherit; transform: scale(1); }
+        }
+
+        .float-up {
+            animation: float-up 0.8s ease-out forwards;
+            position: absolute;
+            font-weight: bold;
+            color: #fbbf24;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-60px); opacity: 0; }
+        }
+
+        .character {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            bottom: 10px;
+        }
+
+        .track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 50px;
+            height: 50px;
+            position: relative;
+            margin-top: auto;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .glitch-text {
+            color: #f87171 !important;
+            letter-spacing: 2px;
+        }
+
+        #game-container {
+            height: calc(100vh - 20px);
+            max-height: 900px;
+        }
+
+        .key-hint {
+            font-size: 0.7rem;
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body class="p-2">
+
+    <div id="game-container" class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border-4 md:border-8 border-green-900 relative">
+        
+        <!-- Layar Login -->
+        <div id="screen-login" class="absolute inset-0 z-50 bg-emerald-50 flex flex-col items-center justify-center p-6 text-center">
+            <h1 class="text-4xl md:text-6xl font-bold text-green-900 mb-2">🌲 Duel Ekosistem</h1>
+            <p class="text-green-700 mb-8 font-medium text-lg italic">Siapa yang paling cepat mengenali alam?</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl mb-8">
+                <div class="space-y-3 bg-white p-6 rounded-2xl shadow-md border-b-4 border-blue-400">
+                    <h3 class="font-bold text-blue-600">PEMAIN 1 (Kiri)</h3>
+                    <input type="text" id="input-p1" placeholder="Nama Pemain 1" class="w-full p-3 rounded-xl border-2 border-gray-100 outline-none focus:border-blue-400 transition-all text-center">
+                    <div class="text-xs text-gray-400">Kontrol: Tombol [A] & [S]</div>
+                </div>
+                <div class="space-y-3 bg-white p-6 rounded-2xl shadow-md border-b-4 border-red-400">
+                    <h3 class="font-bold text-red-600">PEMAIN 2 (Kanan)</h3>
+                    <input type="text" id="input-p2" placeholder="Nama Pemain 2" class="w-full p-3 rounded-xl border-2 border-gray-100 outline-none focus:border-red-400 transition-all text-center">
+                    <div class="text-xs text-gray-400">Kontrol: Tombol [←] & [→]</div>
+                </div>
+            </div>
+            
+            <button id="btn-start" disabled class="px-12 py-4 bg-gray-300 text-white rounded-2xl font-bold text-2xl cursor-not-allowed transition-all shadow-xl">MULAI DUEL!</button>
+        </div>
+
+        <!-- Layar Gameplay Utama -->
+        <div id="screen-game" class="flex-1 flex flex-col hidden overflow-hidden">
+            <div class="flex-1 forest-bg grid grid-cols-2 gap-0 border-b-4 border-green-950 overflow-hidden">
+                
+                <!-- Area Player 1 -->
+                <div id="p1-area" class="relative flex flex-col justify-between p-4 border-r-2 border-white/10 overflow-hidden">
+                    <div class="bg-white/90 self-start px-4 py-1 rounded-full font-bold text-blue-800 shadow-md border-2 border-blue-200 text-sm z-10">
+                        <span id="p1-display-name">P1</span>: <span id="p1-score-display">0</span>
+                    </div>
+                    
+                    <div class="track w-full">
+                        <div id="p1-char" class="character text-5xl md:text-7xl absolute" style="left: 0%;">🤠</div>
+                        <div id="p1-float-container" class="absolute w-full h-full pointer-events-none"></div>
+                    </div>
+
+                    <div id="p1-card" class="mb-4 bg-white/20 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[140px] border-4 border-white/30 backdrop-blur-sm">
+                        <span id="p1-target-emoji" class="text-5xl md:text-6xl mb-1">❓</span>
+                        <span id="p1-target-name" class="font-bold text-white text-lg md:text-2xl uppercase tracking-tighter drop-shadow-lg text-center">Mencari...</span>
+                    </div>
+                </div>
+
+                <!-- Area Player 2 -->
+                <div id="p2-area" class="relative flex flex-col justify-between p-4 overflow-hidden">
+                    <div class="bg-white/90 self-end px-4 py-1 rounded-full font-bold text-red-800 shadow-md border-2 border-red-200 text-sm z-10">
+                        <span id="p2-display-name">P2</span>: <span id="p2-score-display">0</span>
+                    </div>
+                    
+                    <div class="track w-full">
+                        <div id="p2-char" class="character text-5xl md:text-7xl absolute" style="left: 0%;">👩‍🌾</div>
+                        <div id="p2-float-container" class="absolute w-full h-full pointer-events-none"></div>
+                    </div>
+
+                    <div id="p2-card" class="mb-4 bg-white/20 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[140px] border-4 border-white/30 backdrop-blur-sm">
+                        <span id="p2-target-emoji" class="text-5xl md:text-6xl mb-1">❓</span>
+                        <span id="p2-target-name" class="font-bold text-white text-lg md:text-2xl uppercase tracking-tighter drop-shadow-lg text-center">Mencari...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Kontrol -->
+            <div class="h-32 md:h-44 bg-green-950 p-4 grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="checkAnswer(1, 'biotik')" id="p1-btn-biotik" class="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex flex-col items-center justify-center shadow-lg border-b-4 border-blue-900 active:border-b-0 active:translate-y-1 transition-all">
+                        <span>BIOTIK</span>
+                        <span class="key-hint">Tombol [A]</span>
+                    </button>
+                    <button onclick="checkAnswer(1, 'abiotik')" id="p1-btn-abiotik" class="bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-bold flex flex-col items-center justify-center shadow-lg border-b-4 border-amber-900 active:border-b-0 active:translate-y-1 transition-all">
+                        <span>ABIOTIK</span>
+                        <span class="key-hint">Tombol [S]</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="checkAnswer(2, 'biotik')" id="p2-btn-biotik" class="bg-red-600 hover:bg-red-500 text-white rounded-2xl font-bold flex flex-col items-center justify-center shadow-lg border-b-4 border-red-900 active:border-b-0 active:translate-y-1 transition-all">
+                        <span>BIOTIK</span>
+                        <span class="key-hint">Tombol [←]</span>
+                    </button>
+                    <button onclick="checkAnswer(2, 'abiotik')" id="p2-btn-abiotik" class="bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-bold flex flex-col items-center justify-center shadow-lg border-b-4 border-orange-900 active:border-b-0 active:translate-y-1 transition-all">
+                        <span>ABIOTIK</span>
+                        <span class="key-hint">Tombol [→]</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layar Skor Akhir -->
+        <div id="screen-score" class="absolute inset-0 z-50 bg-white hidden flex flex-col items-center justify-center p-6 text-center">
+            <div class="text-6xl mb-4">👑</div>
+            <h2 id="final-winner-title" class="text-4xl md:text-6xl font-bold text-green-900 mb-2">Pemenang!</h2>
+            <p id="final-winner-sub" class="text-xl text-gray-600 mb-8 italic">Ekspedisi Hutan Selesai</p>
+            
+            <div class="grid grid-cols-2 gap-8 w-full max-w-xl mb-10">
+                <div class="p-6 rounded-3xl bg-blue-50 border-4 border-blue-200">
+                    <div id="p1-final-name" class="font-bold text-blue-600 mb-2 uppercase text-sm tracking-widest">-</div>
+                    <div id="p1-final-score" class="text-5xl font-bold text-blue-900">0</div>
+                </div>
+                <div class="p-6 rounded-3xl bg-red-50 border-4 border-red-200">
+                    <div id="p2-final-name" class="font-bold text-red-600 mb-2 uppercase text-sm tracking-widest">-</div>
+                    <div id="p2-final-score" class="text-5xl font-bold text-red-900">0</div>
+                </div>
+            </div>
+
+            <button onclick="location.reload()" class="px-12 py-4 bg-green-700 text-white rounded-2xl font-bold text-xl hover:bg-green-800 shadow-xl transition-all">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <script>
+        const bankData = [
+            { name: "Pohon Pinus", type: "biotik", emoji: "🌲" },
+            { name: "Sinar Surya", type: "abiotik", emoji: "☀️" },
+            { name: "Harimau", type: "biotik", emoji: "🐅" },
+            { name: "Batu Kali", type: "abiotik", emoji: "🪨" },
+            { name: "Udara", type: "abiotik", emoji: "🌬️" },
+            { name: "Cacing", type: "biotik", emoji: "🪱" },
+            { name: "Air Sungai", type: "abiotik", emoji: "💧" },
+            { name: "Jamur Liar", type: "biotik", emoji: "🍄" },
+            { name: "Kijang", type: "biotik", emoji: "🦌" },
+            { name: "Pasir", type: "abiotik", emoji: "⏳" },
+            { name: "Semut", type: "biotik", emoji: "🐜" },
+            { name: "Tanah", type: "abiotik", emoji: "🌍" },
+            { name: "Burung Hantu", type: "biotik", emoji: "🦉" },
+            { name: "Rumput", type: "biotik", emoji: "🌱" },
+            { name: "Monyet", type: "biotik", emoji: "🐒" },
+            { name: "Bakteri", type: "biotik", emoji: "🦠" },
+            { name: "Petir", type: "abiotik", emoji: "⚡" },
+            { name: "Anggrek", type: "biotik", emoji: "🌸" },
+            { name: "Gua Batu", type: "abiotik", emoji: "⛰️" },
+            { name: "Ular Sanca", type: "biotik", emoji: "🐍" },
+            { name: "Oksigen", type: "abiotik", emoji: "🧪" }
+        ];
+
+        const correctSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+        const wrongSynth = new Tone.NoiseSynth().toDestination();
+
+        let scores = { 1: 0, 2: 0 };
+        let progress = { 1: 0, 2: 0 };
+        let targets = { 1: null, 2: null };
+        let locked = { 1: false, 2: false };
+        let gameActive = false;
+
+        const btnStart = document.getElementById('btn-start');
+        const inP1 = document.getElementById('input-p1');
+        const inP2 = document.getElementById('input-p2');
+
+        function validateInputs() {
+            const v = inP1.value.trim().length > 0 && inP2.value.trim().length > 0;
+            btnStart.disabled = !v;
+            btnStart.className = v ? "px-12 py-4 bg-green-600 text-white rounded-2xl font-bold text-2xl shadow-xl cursor-pointer" : "px-12 py-4 bg-gray-300 text-white rounded-2xl font-bold text-2xl cursor-not-allowed";
+        }
+
+        inP1.oninput = validateInputs;
+        inP2.oninput = validateInputs;
+
+        btnStart.onclick = async () => {
+            await Tone.start();
+            document.getElementById('p1-display-name').innerText = inP1.value;
+            document.getElementById('p2-display-name').innerText = inP2.value;
+            document.getElementById('screen-login').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            gameActive = true;
+            initGame();
+        };
+
+        function initGame() {
+            generateQuestion(1);
+            generateQuestion(2);
+            updateUI(1);
+            updateUI(2);
+        }
+
+        function generateQuestion(p) {
+            const item = bankData[Math.floor(Math.random() * bankData.length)];
+            targets[p] = item;
+            document.getElementById(`p${p}-target-emoji`).innerText = item.emoji;
+            document.getElementById(`p${p}-target-name`).innerText = item.name;
+        }
+
+        function checkAnswer(p, choice) {
+            // Pengaman: Jangan proses jika game belum aktif atau target belum dimuat
+            if (!gameActive || locked[p] || !targets[p]) return;
+            
+            const isCorrect = targets[p].type === choice;
+            const btn = document.getElementById(`p${p}-btn-${choice}`);
+            
+            if (isCorrect) handleCorrect(p, btn);
+            else handleWrong(p, btn);
+        }
+
+        function handleCorrect(p, btn) {
+            locked[p] = true;
+            correctSynth.triggerAttackRelease(["C5", "E5", "G5"], "16n");
+            
+            const original = btn.innerHTML;
+            btn.innerHTML = "<span class='text-2xl'>✅</span>";
+            btn.classList.add('bg-white', 'text-green-600');
+
+            const char = document.getElementById(`p${p}-char`);
+            const float = document.createElement('div');
+            float.className = 'float-up text-3xl';
+            float.innerText = '+10';
+            float.style.left = char.style.left;
+            document.getElementById(`p${p}-float-container`).appendChild(float);
+            setTimeout(() => float.remove(), 800);
+
+            scores[p] += 10;
+            progress[p] += 10;
+            updateUI(p);
+
+            setTimeout(() => {
+                btn.innerHTML = original;
+                btn.classList.remove('bg-white', 'text-green-600');
+                locked[p] = false;
+                if (progress[p] >= 100) finish(p);
+                else if (gameActive) generateQuestion(p);
+            }, 500);
+        }
+
+        function handleWrong(p, btn) {
+            locked[p] = true;
+            wrongSynth.triggerAttackRelease("16n");
+            document.getElementById(`p${p}-area`).classList.add('shake');
+            btn.classList.add('pulse-red');
+            
+            progress[p] = Math.max(0, progress[p] - 5);
+            updateUI(p);
+
+            const nameEl = document.getElementById(`p${p}-target-name`);
+            const oldText = nameEl.innerText;
+            let timer = 0;
+            let glitch = setInterval(() => {
+                nameEl.innerText = "!?#@%".split("").sort(()=>.5-Math.random()).join("");
+                nameEl.classList.add('glitch-text');
+                if(timer++ > 10) {
+                    clearInterval(glitch);
+                    nameEl.innerText = oldText;
+                    nameEl.classList.remove('glitch-text');
+                    document.getElementById(`p${p}-area`).classList.remove('shake');
+                    btn.classList.remove('pulse-red');
+                    locked[p] = false;
+                    if (gameActive) generateQuestion(p);
+                }
+            }, 60);
+        }
+
+        function updateUI(p) {
+            document.getElementById(`p${p}-char`).style.left = (progress[p] * 0.88) + "%";
+            document.getElementById(`p${p}-score-display`).innerText = scores[p];
+        }
+
+        function finish(winner) {
+            gameActive = false;
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-score').classList.remove('hidden');
+            
+            const winnerName = winner === 1 ? inP1.value : inP2.value;
+            document.getElementById('final-winner-title').innerText = `${winnerName} Menang!`;
+            
+            document.getElementById('p1-final-name').innerText = inP1.value;
+            document.getElementById('p2-final-name').innerText = inP2.value;
+            document.getElementById('p1-final-score').innerText = scores[1];
+            document.getElementById('p2-final-score').innerText = scores[2];
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive) return; // Abaikan input jika tidak di layar permainan
+            const key = e.key.toLowerCase();
+            if (key === 'a') checkAnswer(1, 'biotik');
+            if (key === 's') checkAnswer(1, 'abiotik');
+            if (e.key === 'ArrowLeft') checkAnswer(2, 'biotik');
+            if (e.key === 'ArrowRight') checkAnswer(2, 'abiotik');
+        });
+    </script>
+</body>
+</html>
